@@ -1,0 +1,93 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include "Adafruit_TSL2591.h"
+
+Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591);
+
+//Configures the gain and integration time for the TSL2591 
+void configureSensor(void)
+{
+  tsl.setGain(TSL2591_GAIN_MED);
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+  
+  Serial.println(F("------------------------------------"));
+  Serial.print  (F("Gain:         "));
+  tsl2591Gain_t gain = tsl.getGain();
+  switch(gain)
+  {
+    case TSL2591_GAIN_LOW:
+      Serial.println(F("1x (Low)"));
+      break;
+    case TSL2591_GAIN_MED:
+      Serial.println(F("25x (Medium)"));
+      break;
+    case TSL2591_GAIN_HIGH:
+      Serial.println(F("428x (High)"));
+      break;
+    case TSL2591_GAIN_MAX:
+      Serial.println(F("9876x (Max)"));
+      break;
+  }
+  Serial.print  (F("Timing:       "));
+  Serial.print((tsl.getTiming() + 1) * 100, DEC); 
+  Serial.println(F(" ms"));
+  Serial.println(F("------------------------------------"));
+}
+
+void setup(void) 
+{
+  pinMode(10, OUTPUT);
+  pinMode(11, OUTPUT);
+  pinMode(12, OUTPUT);
+  pinMode(13, OUTPUT);
+  Serial.begin(9600);
+  
+  Serial.println(F("Starting Adafruit TSL2591..."));
+  
+  if (tsl.begin()) 
+  {
+    Serial.println(F("Found a TSL2591 sensor"));
+    digitalWrite (13, LOW); //Turns off the Red LED to indicate there is no issue with sensor connection
+	digitalWrite (11, HIGH); //Opposite for Green LED
+  } 
+  else 
+  {
+    Serial.println(F("No sensor found ..."));
+    digitalWrite (13, HIGH); //Turns on the Red LED to indicate an issue with the sensor connection
+	digitalWrite (11, LOW); //Opposite for Green LED
+    while (1);
+  }
+  configureSensor();
+}
+
+// Reads IR and full spectrum then converts to Lux and checks for less than 500 Lux value
+void advancedRead(void)
+{
+  sensors_event_t event;
+  tsl.getEvent(&event);
+  uint32_t lum = tsl.getFullLuminosity();
+  uint16_t ir, full;
+  ir = lum >> 16;
+  full = lum & 0xFFFF;
+  if ((event.light < 500))
+    {
+      digitalWrite(12, HIGH); //Turns Yellow LED (connected to pin 12) ON
+	  tone(10,440); //Plays a Super Annoying sound until Lux goes back over 500 
+      Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 2); //This is the printout that goes into the serial monitor - "Lux: ###.##"
+	  delay(10);
+    }
+    else
+      { 
+        digitalWrite(12, LOW); //Turns Yellow LED (connected to pin 12) OFF
+		noTone(10); //Will turn off the annoying tone once it goes above 500 Lux
+        Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 2); //This is the printout that goes into the serial monitor - "Lux: ###.##"
+		delay(10);
+      }
+}
+
+// Arduino loop function
+void loop(void) 
+{
+  advancedRead();
+  delay(100); 
+}
